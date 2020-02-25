@@ -133,27 +133,6 @@ class DataPartitioner(object):
         partitions = [list() for i in range(sizes)] # of size (m)
         np.random.seed(seed) 
         distribution = np.random.dirichlet([alpha] * sizes, labelNum).tolist() # of size (10, m)
-        # eachPartitionLen= int(len(labelList)/len(sizes))
-        # majorLabelNumPerPartition = ceil(labelNum/len(partitions))
-        # basicLabelRatio = 0.4
-
-        # interval = 1
-        # labelPointer = 0
-
-        #basic part
-        # for partPointer in range(len(partitions)):
-        #     requiredLabelList = list()
-        #     for _ in range(majorLabelNumPerPartition):
-        #         requiredLabelList.append(labelPointer)
-        #         labelPointer += interval
-        #         if labelPointer > labelNum - 1:
-        #             labelPointer = interval
-        #             interval += 1
-        #     for labelIdx in requiredLabelList:
-        #         start = labelIdxPointer[labelIdx]
-        #         idxIncrement = int(basicLabelRatio*len(labelIdxDict[labelNameList[labelIdx]]))
-        #         partitions[partPointer].extend(labelIdxDict[labelNameList[labelIdx]][start:start+ idxIncrement])
-        #         labelIdxPointer[labelIdx] += idxIncrement
 
         # basic part
         for row_id, dist in enumerate(distribution):
@@ -165,15 +144,6 @@ class DataPartitioner(object):
                 partitions[i].extend(subDictList[dist[i]:dist[i+1]+1])
 
         #random part
-        # remainLabels = list()
-        # for labelIdx in range(labelNum):
-        #     remainLabels.extend(labelIdxDict[labelNameList[labelIdx]][labelIdxPointer[labelIdx]:])
-        # rng.shuffle(remainLabels)
-        # for partPointer in range(len(partitions)):
-        #     idxIncrement = eachPartitionLen - len(partitions[partPointer])
-        #     partitions[partPointer].extend(remainLabels[:idxIncrement])
-        #     rng.shuffle(partitions[partPointer])
-        #     remainLabels = remainLabels[idxIncrement:]
         a = [len(partitions[i]) for i in range(len(partitions))]
         ratio = [a[i]/sum(a) for i in range(len(a))]
         return partitions, ratio
@@ -329,7 +299,7 @@ def partition_dataset(rank, size, args):
                                                 num_workers=size)
  
     
-    return train_loader, test_loader, ratio[rank]
+    return train_loader, test_loader
 
 def select_model(num_class, args):
     if args.model == 'VGG':
