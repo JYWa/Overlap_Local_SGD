@@ -8,5 +8,6 @@ This repo contains the implementations of the following algorithms:
 - Overlap-Local-SGD (proposed in this paper)
 - Elastic Averaging SGD [Zhang et al. NeurIPS 2015](http://papers.nips.cc/paper/5761-deep-learning-with-elastic-averaging-sgd)
 - CoCoD-SGD [Shen et al. IJCAI 2019](https://arxiv.org/abs/1906.12043)
+- Blockwise Model-update Filtering (BMUF) [Chen and Huo ICASSP 2016](https://ieeexplore.ieee.org/abstract/document/7472805/) 
 
 Please cite this paper if you use this code for your research/projects.
