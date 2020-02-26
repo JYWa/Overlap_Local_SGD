@@ -11,3 +11,6 @@ This repo contains the implementations of the following algorithms:
 - Blockwise Model-update Filtering (BMUF) [Chen and Huo ICASSP 2016](https://ieeexplore.ieee.org/abstract/document/7472805/) 
 
 Please cite this paper if you use this code for your research/projects.
+
+## Training examples
+TBA.
