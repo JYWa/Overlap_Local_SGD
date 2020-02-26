@@ -24,8 +24,6 @@ import torchvision.models as IMG_models
 
 from models import *
 
-# logging.basicConfig(level=logging.INFO)
-
 
 class Partition(object):
     """ Dataset-like object, but only access a subset of it. """
@@ -45,22 +43,24 @@ class DataPartitioner(object):
     """ Partitions a dataset into different chuncks. """
     def __init__(self, data, sizes=[0.7, 0.2, 0.1], seed=1234, isNonIID=False, alpha=0):
         self.data = data 
-        self.partitions = [] 
-        self.ratio = [0] * len(sizes)
-        rng = Random() 
-        rng.seed(seed) 
-        data_len = len(data) 
-        indexes = [x for x in range(0, data_len)] 
-        rng.shuffle(indexes) 
-         
- 
-        for frac in sizes: 
-            part_len = int(frac * data_len)
-            self.partitions.append(indexes[0:part_len])
-            indexes = indexes[part_len:]
-
         if isNonIID:
             self.partitions, self.ratio = self.__getDirichletData__(data, sizes, seed, alpha)
+        else:
+            self.partitions = [] 
+            self.ratio = [0] * len(sizes)
+            rng = Random() 
+            rng.seed(seed) 
+            data_len = len(data) 
+            indexes = [x for x in range(0, data_len)] 
+            rng.shuffle(indexes) 
+             
+     
+            for frac in sizes: 
+                part_len = int(frac * data_len)
+                self.partitions.append(indexes[0:part_len])
+                indexes = indexes[part_len:]
+
+
 
     def use(self, partition):
         return Partition(self.data, self.partitions[partition])
@@ -171,7 +171,7 @@ def partition_dataset(rank, size, args):
                                                 transform=transform_train)
         
         partition_sizes = [1.0 / size for _ in range(size)]
-        partition = DataPartitioner(trainset, partition_sizes, isNonIID=args.NIID, alpha=args.alpha)
+        partition = DataPartitioner(trainset, partition_sizes, isNonIID=args.NIID, alpha=0.5)
         ratio = partition.ratio
         partition = partition.use(rank)
         train_loader = torch.utils.data.DataLoader(partition, 
@@ -198,7 +198,7 @@ def partition_dataset(rank, size, args):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
         ])
         trainset = torchvision.datasets.CIFAR100(root='/users/jianyuw1/AdaDSGD/data', 
                                                 train=True, 
@@ -217,7 +217,7 @@ def partition_dataset(rank, size, args):
         print('==> load test data')
         transform_test = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
         ])
         testset = torchvision.datasets.CIFAR100(root='/users/jianyuw1/AdaDSGD/data', 
                                             train=False, 

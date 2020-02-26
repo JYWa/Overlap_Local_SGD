@@ -5,7 +5,7 @@ from comm_helpers import communicate, flatten_tensors, unflatten_tensors
 import threading
 
 
-class SGD(Optimizer):
+class CoCoDSGD(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
 
     Nesterov momentum is based on the formula from
@@ -59,7 +59,6 @@ class SGD(Optimizer):
         self.size = size
         self.comm_buf = []
 
-        
 
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -72,7 +71,7 @@ class SGD(Optimizer):
                         weight_decay=weight_decay, nesterov=nesterov, variance=variance)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super(SGD, self).__init__(params, defaults)
+        super(CoCoDSGD, self).__init__(params, defaults)
 
 
         for group in self.param_groups:
@@ -88,14 +87,14 @@ class SGD(Optimizer):
         self.buf_ready.clear()
 
         self.comm_thread = threading.Thread(
-                target=SGD._async_all_reduce_,
+                target=CoCoDSGD._async_all_reduce_,
                 args=(self.comm_buf, self.buf_ready, self.comm_finish))
         self.comm_thread.daemon = True
         self.comm_thread.name = 'Communication-Thread'
         self.comm_thread.start()
 
     def __setstate__(self, state):
-        super(SGD, self).__setstate__(state)
+        super(CoCoDSGD, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('nesterov', False)
 
@@ -143,106 +142,8 @@ class SGD(Optimizer):
 
         return loss
 
-    def elastic_average(self, itr, cp):
-        step_flag = (itr != 0 and itr % cp == 0)
-        if step_flag:
-            beta = 1/self.size - self.alpha - self.alpha**2/(1-self.alpha)
-            for group in self.param_groups:
-                for p in group['params']:
-                    param_state = self.state[p]
-                    buf = param_state['anchor_model']
 
-                    p.data.mul_(1-self.alpha).add_(self.alpha, buf)
-                    buf.mul_(beta).add_(self.alpha/(1-self.alpha), p.data)
-                    
-            communicate(self.comm_buf, dist.all_reduce)
-
-
-    def overlap_elastic_average(self, itr, cp, req):
-        step_flag = (itr != 0 and itr % cp == 0)
-        if step_flag:
-            beta = 1/self.size - self.alpha - self.alpha**2/(1-self.alpha)
-            gamma = self.alpha/(1-self.alpha)
-            if req:
-                req.wait()
-                for f, t in zip(unflatten_tensors(self.flat_tensor, self.comm_buf), self.comm_buf):
-                    t.set_(f)
-
-            for group in self.param_groups:
-                for p in group['params']:
-                    param_state = self.state[p]
-                    buf = param_state['anchor_model']
-
-                    p.data.mul_(1-self.alpha).add_(self.alpha, buf)
-                    buf.mul_(beta).add_(gamma, p.data)
-                    
-            self.flat_tensor = flatten_tensors(self.comm_buf)
-            req = dist.all_reduce(tensor=self.flat_tensor, async_op=True)
-        
-        return req
-
-
-    def BMUF(self, itr, cp):
-        step_flag = (itr != 0 and itr % cp == 0)
-        if step_flag:
-
-            for group in self.param_groups:
-                lr = group['lr']
-                for p in group['params']:
-                    param_state = self.state[p]
-                    old_data = param_state['anchor_model']
-
-                    if 'global_momentum_buffer' not in param_state:
-                        buf = param_state['global_momentum_buffer'] = torch.clone(p.data).detach()
-                        buf.sub_(old_data)
-                        buf.div_(-lr)
-                    else:
-                        buf = param_state['global_momentum_buffer']
-                        buf.mul_(self.gmf).sub_(1/lr, p.data).add_(1/lr, old_data)
-
-                    old_data.add_(-lr, buf)
-                    old_data.div_(self.size)
-
-            communicate(self.comm_buf, dist.all_reduce)
-            for group in self.param_groups:
-                for p in group['params']:
-                    param_state = self.state[p]
-                    old_data = param_state['anchor_model']
-                    p.data.copy_(old_data)
-
-
-    def OverlapLocalSGD_step(self, itr, cp, req):
-        # Olocal SGD
-        step_flag = (itr != 0 and itr % cp == 0)
-        if step_flag:
-
-            self.comm_finish.wait()
-
-            for group in self.param_groups:
-                lr = group['lr']
-                for p in group['params']:
-                    param_state = self.state[p]
-                    old_data = param_state['anchor_model']
-
-                    p.data.mul_(1-self.alpha).add_(self.alpha, old_data)
-
-                    #param_state['momentum_buffer'].zero_()
-                    if 'global_momentum_buffer' not in param_state:
-                        buf = param_state['global_momentum_buffer'] = torch.clone(p.data).detach()
-                        buf.sub_(old_data)
-                        buf.div_(-lr)
-                    else:
-                        buf = param_state['global_momentum_buffer']
-                        buf.mul_(self.gmf).sub_(1/lr, p.data).add_(1/lr, old_data)
-
-                    old_data.add_(-lr, buf)
-                    old_data.div_(self.size)
-                    #param_state['momentum_buffer'].zero_()
-
-            self.comm_finish.clear()
-            self.buf_ready.set()
-
-    def async_CoCoD_SGD_step(self, itr, cp, req):
+    def average(self, itr, cp):
         step_flag = (itr != 0 and itr % cp == 0)
         if step_flag:
 

@@ -19,7 +19,7 @@ from torchvision import datasets, transforms
 import torch.backends.cudnn as cudnn
 import torchvision.models as models
 
-import LocalSGD as optim
+from distoptim import LocalSGD, OverlapLocalSGD
 import util_v4 as util
 from comm_helpers import SyncAllreduce
 
@@ -148,14 +148,22 @@ def run(rank, size):
     # define neural nets model, criterion, and optimizer
     model = util.select_model(args.model, args).cuda()
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = optim.SGD(model.parameters(),
-                          lr=args.lr,
-                          alpha=args.alpha,
-                          gmf=args.gmf,
-                          size=size,
-                          momentum=0.9,
-                          nesterov = True,
-                          weight_decay=1e-4)
+    optimizer = LocalSGD(model.parameters(),
+                      lr=args.lr,
+                      gmf=args.gmf,
+                      size=size,
+                      momentum=0.9,
+                      nesterov = True,
+                      weight_decay=1e-4)
+
+    # optimizer = OverlapLocalSGD(model.parameters(),
+    #                       lr=args.lr,
+    #                       alpha=args.alpha,
+    #                       gmf=args.gmf,
+    #                       size=size,
+    #                       momentum=0.9,
+    #                       nesterov = True,
+    #                       weight_decay=1e-4)
 
     batch_meter = util.Meter(ptag='Time')
     comm_meter = util.Meter(ptag='Time')
@@ -163,8 +171,8 @@ def run(rank, size):
     best_test_accuracy = 0
     req = None
     for epoch in range(args.epoch):
-        req = train(model, criterion, optimizer, batch_meter, comm_meter,
-              train_loader, epoch, req)
+        train(model, criterion, optimizer, batch_meter, comm_meter,
+              train_loader, epoch)
         test_acc = evaluate(model, test_loader)
         if test_acc > best_test_accuracy:
             best_test_accuracy = test_acc
@@ -197,7 +205,7 @@ def evaluate(model, test_loader):
     return top1.avg
 
 def train(model, criterion, optimizer, batch_meter, comm_meter,
-          loader, epoch, req):
+          loader, epoch):
 
     model.train()
 
@@ -219,24 +227,15 @@ def train(model, criterion, optimizer, batch_meter, comm_meter,
         loss.backward()
         update_learning_rate(optimizer, epoch, itr=batch_idx,
                                  itr_per_epoch=len(loader))
+        # gradient step
         optimizer.step()
         optimizer.zero_grad()
 
         torch.cuda.synchronize()
         comm_start = time.time()
         
-
-        ## CoCoD-SGD
-        # optimizer.async_CoCoD_SGD_step(batch_idx, args.cp, req)
-        
-        ## Local SGD
-        # if batch_idx != 0 and batch_idx % args.cp == 0:
-            # SyncAllreduce(model, rank, size)
-        
-        optimizer.OverlapLocalSGD_step(batch_idx, args.cp, req)
-        
-        ## EASGD
-        #optimizer.elastic_average(batch_idx, args.cp)
+        # Communication step: average local models
+        optimizer.average(batch_idx, args.cp)
 
         if not (epoch == 0 and batch_idx == 0):
             torch.cuda.synchronize()
@@ -271,7 +270,7 @@ def train(model, criterion, optimizer, batch_meter, comm_meter,
               .format(ep=epoch, itr=batch_idx,
                       bt=batch_meter, ct=comm_meter,
                       loss=losses, top1=top1), file=f)
-    return req
+
 
 def update_learning_rate(optimizer, epoch, itr=None, itr_per_epoch=None,
                          scale=1):

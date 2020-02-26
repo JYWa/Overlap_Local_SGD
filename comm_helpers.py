@@ -68,66 +68,6 @@ def communicate(tensors, communication_op, attention=False):
     for f, t in zip(unflatten_tensors(flat_tensor, tensors), tensors):
         t.set_(f)
 
-def SyncEAvg(model, anchor_model, rank, size, group, alpha):
-    '''
-    Inputs:
-        model: (x^i) local neural net model at i-th worker node
-        anchor_model: (z^1=z^2=...=z^m=z) local copy of auxiliary variable
-        rank: (i) worker index
-        size: (m) total number of workers
-        group: worker group
-        alpha: (a) elasticity parameter
-    Output:
-        return void, change in-place
-    Formula:
-        x_new = (1-a)*x^i + a*z
-        z_new = z + a*(sum_i x^i - m*z) 
-    '''
-
-    for param1, param2 in zip(anchor_model.parameters(), model.parameters()):
-        diff = (param2.data - param1.data)
-        param2.data = (1-alpha)*param2.data + alpha*param1.data
-        param1.data = param1.data/float(size) + alpha*diff
-    
-    for param in anchor_model.parameters():
-        dist.all_reduce(param.data, op=dist.ReduceOp.SUM, group=group)
-
-
-def AsyncEAvg(model, anchor_model, rank, size, group, req, alpha):
-    '''
-    Inputs:
-        model: (x^i) local neural net model at i-th worker node
-        anchor_model: (z^1=z^2=...=z^m=z) local copy of auxiliary variable
-        rank: (i) worker index
-        size: (m) total number of workers
-        group: worker group
-        alpha: (a) elasticity parameter
-        req: handle of last iteration's communication
-    Output:
-        return a handle of asynchronous fuction
-    Formula:
-        x_new = (1-a)*x^i + a*z
-        z_new = z + a*(sum_i x^i - m*z)
-        * the computation of z_new isn't finished when the function returns
-    '''
-    if req:
-        for param1, param2 in zip(anchor_model.parameters(), model.parameters()):
-            req[param1].wait() # wait the last iteration's update of z to finish
-
-            diff = (param2.data - param1.data)
-            param2.data = (1-alpha)*param2.data + alpha*param1.data
-            param1.data = param1.data/float(size) + alpha*diff
-    else:
-        for param1, param2 in zip(anchor_model.parameters(), model.parameters()):
-            diff = (param2.data - param1.data)
-            param2.data = (1-alpha)*param2.data + alpha*param1.data
-            param1.data = param1.data/float(size) + alpha*diff
-    
-    for param in anchor_model.parameters():
-        req[param] = dist.all_reduce(param.data, op=dist.ReduceOp.SUM, group=group, async_op=True)
-
-    return req
-
 
 def SyncAllreduce(model, rank, size):
     '''
