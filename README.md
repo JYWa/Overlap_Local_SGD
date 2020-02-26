@@ -12,5 +12,8 @@ This repo contains the implementations of the following algorithms:
 
 Please cite this paper if you use this code for your research/projects.
 
+## Dependencies and Setup
+The code runs on Python 3.5 with PyTorch 1.0.0 and torchvision 0.2.1.
+
 ## Training examples
 TBA.
