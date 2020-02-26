@@ -14,6 +14,7 @@ Please cite this paper if you use this code for your research/projects.
 
 ## Dependencies and Setup
 The code runs on Python 3.5 with PyTorch 1.0.0 and torchvision 0.2.1.
+The non-blocking communication is implemented using Python threading package.
 
 ## Training examples
 TBA.
