@@ -44,7 +44,7 @@ for batch_id, (data, label) in enumerate(data_loader):
 	# optimizer has its own iteration counter inside
 	optimizer.average()
 ```
-In addition, one need to initialize the progress group as described in this [documentation](https://pytorch.org/docs/stable/distributed.html). In our private cluster, each machine has one GPU.
+In addition, one need to initialize the process group as described in this [documentation](https://pytorch.org/docs/stable/distributed.html). In our private cluster, each machine has one GPU.
 ```python
 # backend = gloo or nccl
 # rank: 0,1,2,3,...
