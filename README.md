@@ -1,3 +1,4 @@
+
 # Overlap-Local-SGD
 
 Code to reproduce the experiments reported in this paper:
@@ -17,4 +18,41 @@ The code runs on Python 3.5 with PyTorch 1.0.0 and torchvision 0.2.1.
 The non-blocking communication is implemented using Python threading package.
 
 ## Training examples
-TBA.
+We implement all the above mentioned algorithms as subclasses of [torch.optim.optimizer](https://pytorch.org/docs/stable/optim.html). A typical usage is shown as follows:
+```python
+import distoptim
+
+# Before training
+# define the optimizer
+# One can use: 1) LocalSGD (including BMUF); 2) OverlapLocalSGD; 
+#              3) EASGD; 4) CoCoDSGD
+# tau is the number of local updates / communication period
+optimizer = distoptim.SELECTED_OPTIMIZER(tau)
+...... # define model, criterion, logging, etc..
+
+# Start training
+for batch_id, (data, label) in enumerate(data_loader):
+	# same as serial training
+	output = model(data) # forward
+	loss = criterion(output, label)
+	loss.backward() # backward
+	optimizer.step() # gradient step
+	optimizer.zero_grad()
+
+	# additional line to average local models at workers
+	# communication happens after every tau iterations
+	# optimizer has its own iteration counter inside
+	optimizer.average()
+```
+In addition, one need to initialize the progress group as described in this [documentation](https://pytorch.org/docs/stable/distributed.html). In our private cluster, each machine has one GPU.
+```python
+# backend = gloo or nccl
+# rank: 0,1,2,3,...
+# size: number of workers
+# h0 is the host name of worker0, you need to change it
+torch.distributed.init_process_group(backend=args.backend, 
+                                     init_method='tcp://h0:22000', 
+                                     rank=args.rank, 
+                                     world_size=args.size)
+```
+    

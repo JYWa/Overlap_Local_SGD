@@ -51,13 +51,15 @@ class OverlapLocalSGD(Optimizer):
         The Nesterov version is analogously modified.
     """
 
-    def __init__(self, params, alpha, gmf, size, lr=required, momentum=0, dampening=0,
+    def __init__(self, params, alpha, gmf, tau, size, lr=required, momentum=0, dampening=0,
                  weight_decay=0, nesterov=False, variance=0):
         
         self.alpha = alpha
         self.gmf = gmf
         self.size = size
         self.comm_buf = []
+        self.itr = 0
+        self.cp = tau
 
 
         if lr is not required and lr < 0.0:
@@ -144,8 +146,8 @@ class OverlapLocalSGD(Optimizer):
 
 
     def average(self, itr, cp):
-        # Olocal SGD
-        step_flag = (itr != 0 and itr % cp == 0)
+        step_flag = (self.itr != 0 and self.itr % cp == 0)
+        self.itr += 1
         if step_flag:
 
             self.comm_finish.wait()

@@ -146,11 +146,12 @@ def run(rank, size):
     train_loader, test_loader = util.partition_dataset(rank, size, args)
 
     # define neural nets model, criterion, and optimizer
-    model = util.select_model(args.model, args).cuda()
+    model = util.select_model(10, args).cuda()
     criterion = nn.CrossEntropyLoss().cuda()
     optimizer = LocalSGD(model.parameters(),
                       lr=args.lr,
                       gmf=args.gmf,
+                      tau=args.cp
                       size=size,
                       momentum=0.9,
                       nesterov = True,
@@ -160,6 +161,7 @@ def run(rank, size):
     #                       lr=args.lr,
     #                       alpha=args.alpha,
     #                       gmf=args.gmf,
+    #                       tau = args.cp,
     #                       size=size,
     #                       momentum=0.9,
     #                       nesterov = True,
@@ -235,7 +237,7 @@ def train(model, criterion, optimizer, batch_meter, comm_meter,
         comm_start = time.time()
         
         # Communication step: average local models
-        optimizer.average(batch_idx, args.cp)
+        optimizer.average()
 
         if not (epoch == 0 and batch_idx == 0):
             torch.cuda.synchronize()
