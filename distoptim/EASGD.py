@@ -159,8 +159,8 @@ class EASGD(Optimizer):
             communicate(self.comm_buf, dist.all_reduce)
 
 
-    def average(self, cp):
-        step_flag = (self.itr != 0 and self.itr % cp == 0)
+    def average(self):
+        step_flag = (self.itr != 0 and self.itr % self.cp == 0)
         self.itr += 1
         if step_flag:
             self.comm_finish.wait()

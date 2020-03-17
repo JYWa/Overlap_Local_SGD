@@ -145,8 +145,8 @@ class OverlapLocalSGD(Optimizer):
         return loss
 
 
-    def average(self, itr, cp):
-        step_flag = (self.itr != 0 and self.itr % cp == 0)
+    def average(self):
+        step_flag = (self.itr != 0 and self.itr % self.cp == 0)
         self.itr += 1
         if step_flag:
 
