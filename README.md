@@ -55,4 +55,14 @@ torch.distributed.init_process_group(backend=args.backend,
                                      rank=args.rank, 
                                      world_size=args.size)
 ```
+
+## Citation
+```
+@article{wang2020overlap,
+	title={Overlap Local-{SGD}: An Algorithmic Approach to Hide Communication Delays in Distributed {SGD}},
+	author={Wang, Jianyu and Liang, Hao and Joshi, Gauri},
+	journal={arXiv preprint arXiv:2002.09539},
+	year={2020}
+}
+```
     
