@@ -151,7 +151,7 @@ def run(rank, size):
     optimizer = LocalSGD(model.parameters(),
                       lr=args.lr,
                       gmf=args.gmf,
-                      tau=args.cp
+                      tau=args.cp,
                       size=size,
                       momentum=0.9,
                       nesterov = True,
